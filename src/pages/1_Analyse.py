@@ -200,15 +200,15 @@ if st.button("Launch analysis"):
     def score_box_plot(key: str, col: DeltaGenerator):
         threshold = 8
         box_data = (
-            user_animes.filter(pl.col("user_scored").is_not_null())
+            user_animes.filter(
+                pl.col("user_scored").is_not_null()
+                & pl.col(key).is_not_null()
+            )
             .select("user_scored", key)
             .explode(key)
             .group_by(key)
             .all()
-            .filter(
-                pl.col(key).is_not_null()
-                & (pl.col("user_scored").list.len() >= threshold)
-            )
+            .filter(pl.col("user_scored").list.len() >= threshold)
             .cast(
                 {
                     # Removes filtered keys from the plot
@@ -334,6 +334,8 @@ if st.button("Launch analysis"):
 
         co_occurrences = []
         for row in data:
+            if row is None or len(row) < 2:
+                continue
             for feature1, feature2 in combinations(sorted(row), 2):
                 co_occurrences.append(
                     {
@@ -341,6 +343,9 @@ if st.button("Launch analysis"):
                         "feature2": feature2,
                     }
                 )
+
+        if not co_occurrences:
+            return pl.DataFrame({"feature1": [], "feature2": [], "count": []})
 
         df = pl.DataFrame(
             co_occurrences,
@@ -355,8 +360,12 @@ if st.button("Launch analysis"):
 
     def draw_co_occurrence(feature: str, col: DeltaGenerator):
         "Draw a co-occurrence matrix with a title and masks the upper triangle."
+        filtered = user_animes.filter(pl.col(feature).is_not_null())
+        if filtered.height == 0:
+            col.info(f"No {feature} data available")
+            return
         occ_data = co_occurrence(
-            user_animes.filter(pl.col(feature).is_not_null()).get_column(feature)
+            filtered.get_column(feature)
         )
 
         # TODO format data into a matrix with lower triangle masked
