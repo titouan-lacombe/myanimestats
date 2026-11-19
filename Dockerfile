@@ -2,7 +2,9 @@ FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf107
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update \
+	&& apt-get upgrade -y \
+	&& apt-get install -y --no-install-recommends \
 	# App dependencies
 	gosu inotify-tools \
 	&& apt-get clean \
@@ -25,4 +27,7 @@ RUN mkdir -p .streamlit
 COPY streamlit.toml .streamlit/config.toml
 
 # Run the application
+# pip is build-time only; its vendored libraries are dead weight and CVE surface.
+RUN python -m pip uninstall -y pip
+
 CMD [ "/app/src/entrypoint.sh" ]
